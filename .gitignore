@@ -1,0 +1,13 @@
+# Bytecode
+__pycache__/
+*.pyc
+
+# Venv  
+.venv/
+venv/
+
+# Test JSON
+*.json
+
+# IDE
+.vscode/
