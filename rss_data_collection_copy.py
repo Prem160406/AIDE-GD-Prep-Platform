@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-AIDE Sem2 Module 1: RSS Data Collection Pipeline
-Fetches news articles from multiple RSS feeds in parallel.
+AIDE Sem2 Module 1: RSS Data Collection Pipeline (Production v2.0)
+Parallel feeds + P0-P3 production hardening
+VIT Pune GD Prep Platform
 """
 
 import json
@@ -17,14 +18,16 @@ import feedparser
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import md5
 
-# Setup logging
+# Setup professional logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Configuration 
+# ─────────────────────────────────────────
+# CONFIGURATION
+# ─────────────────────────────────────────
 DEFAULT_FEEDS = [
     {"url": "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms", "source": "TOI"},
     {"url": "https://www.thehindu.com/feeder/default.rss", "source": "The Hindu"},
@@ -45,10 +48,11 @@ PARALLEL_FEEDS = min(5, len(FEEDS))
 
 CUTOFF = datetime.now(timezone.utc) - timedelta(days=DAYS_BACK)
 
-# Helper Functions 
-
+# ─────────────────────────────────────────
+# HELPER FUNCTIONS
+# ─────────────────────────────────────────
 def create_http_session():
-    """Create requests session with retries for failing APIs."""
+    """Create requests session with robust retries for failing APIs."""
     session = requests.Session()
     retry_strategy = Retry(
         total=3,
@@ -82,17 +86,19 @@ def article_id(title, source):
     return md5(f"{title}:{source}".encode()).hexdigest()
 
 def parse_single_feed(feed_info):
-    """Worker function for parallel feed fetching."""
+    """Worker function for parallel feed fetching using requests for timeout."""
     source = feed_info["source"]
     try:
         session = create_http_session()
+        # Use requests to fetch the feed with a proper timeout
         response = session.get(
             feed_info["url"], 
             headers={'User-Agent': 'AIDE-GD-Prep/2.0'},
             timeout=REQUEST_TIMEOUT
         )
-        response.raise_for_status() 
+        response.raise_for_status() # Raise an error for bad status codes (404, 500, etc)
         
+        # Pass the downloaded raw string content to feedparser
         feed = feedparser.parse(response.content)
         
         if not hasattr(feed, 'entries') or not feed.entries:
@@ -146,8 +152,10 @@ def parse_single_feed(feed_info):
         logger.error(f"{source}: PARSE FAILED - {str(e)}")
         return {"source": source, "status": "error", "error": str(e), "count": 0, "articles": []}
 
-# Main Pipeline
 
+# ─────────────────────────────────────────
+# MAIN PIPELINE
+# ─────────────────────────────────────────
 def collect_rss():
     """Executes parallel feed processing and merges results."""
     logger.info("Starting Parallel RSS Collection...")
