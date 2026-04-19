@@ -1,33 +1,29 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import os
+from typing import Optional
+
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI()
-
-# Mock data (fake topics)
-mock_topics = [
-    {
-        "id": 1,
-        "title": "AI in Healthcare",
-        "description": "How AI is changing medical field",
-        "status": "active"
-    },
-    {
-        "id": 2,
-        "title": "Climate Change 2025",
-        "description": "Latest updates on climate",
-        "status": "active"
-    },
-    {
-        "id": 3,
-        "title": "Space Exploration",
-        "description": "Mars mission updates",
-        "status": "draft"
-    }
-]
 
 @app.get("/")
 def home():
     return {"message": "AIDE Backend is running!"}
 
 @app.get("/topics")
-def get_topics():
-    return {"topics": mock_topics}
+def get_topics(status: Optional[str] = Query(None)):
+    query = supabase.table("topics").select("*")
+    
+    # Agar status query param diya hai toh filter karo
+    if status:
+        query = query.eq("status", status)
+    
+    response = query.execute()
+    return {"topics": response.data}
