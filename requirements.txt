@@ -1,4 +1,10 @@
-#Module 1 - RSS Data Collection
+# Module 1 - RSS Data Collection
 feedparser==6.0.11
 requests==2.31.0
 python-dotenv==1.0.0
+urllib3>=2.0.0
+
+# Module 3 / Backend (Gopal)
+fastapi==0.110.0
+uvicorn==0.29.0
+supabase==2.4.1
