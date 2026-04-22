@@ -1,29 +1,32 @@
 import feedparser
 from datetime import datetime
 
-def fetch_news_to_topics(url, source_name):
-    # Use a timeout to prevent the server from hanging
+def fetch_hr_trends(url, source_name):
+    """
+    Fetches job market trends or interview tips from a career RSS feed.
+    """
     feed = feedparser.parse(url)
     
-    # Check if feedparser actually found anything
+    # Safety Check: If the feed is empty or broken
     if not hasattr(feed, 'entries') or len(feed.entries) == 0:
-        # Instead of crashing, return an empty list or a helpful error
-        print(f"Warning: No entries found for {url}")
+        print(f"Warning: No HR entries found for {url}")
         return []
 
     collected_topics = []
+    
+    # We only take the top 5 to keep the "Drafts" list manageable
     for entry in feed.entries[:5]:
         topic = {
-            "title": entry.get('title', 'No Title'),
-            "summary": entry.get('summary', 'No summary available.')[:150],
+            "title": entry.get('title', 'Upcoming Job Trend'),
+            "summary": entry.get('summary', 'Read more about this career insight.')[:150],
             "source": source_name,
             "source_url": entry.get('link', ''),
             "source_name": source_name,
-            "status": "draft",
+            "status": "draft", # New items are always drafts for Gopal to approve
             "created_at": datetime.now().isoformat(),
-            "issue_type": "current affairs",
-            "validation_score": 5,
-            "model_used": "RSS_FEED",
+            "issue_type": "Career Trend", # Specifically labeled for your HR project
+            "validation_score": 7, 
+            "model_used": "RSS_FEED_PARSER",
             "prompt_version": "n/a"
         }
         collected_topics.append(topic)

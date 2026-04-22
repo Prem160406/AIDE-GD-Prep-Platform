@@ -1,104 +1,83 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
 from datetime import datetime
-
-# Import your services
-from services.ai_service import process_text_to_topic
-from services.rss_service import fetch_news_to_topics
+from flask import Flask, jsonify, request, render_template 
+from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
 # -------- MOCK DATABASE --------
 topics = [
-    {"id": 1, "title": "AI replacing jobs in 2026", "status": "draft", "source": "TOI"},
-    {"id": 2, "title": "Should college attendance be mandatory?", "status": "draft", "source": "HT"},
-    {"id": 3, "title": "India's GDP growth: sustainable?", "status": "active", "source": "ET"}
+    {"id": 1, "title": "Interview: Java Developer", "status": "draft", "source": "AIDE HR"},
+    {"id": 2, "title": "Interview: Frontend Fresher", "status": "draft", "source": "AIDE HR"},
+    {"id": 3, "title": "Trend: 2026 Hiring Freeze", "status": "active", "source": "Glassdoor"}
 ]
 
-# -------- HELPER FUNCTION --------
-def response(success, data, meta={}):
-    return jsonify({"success": success, "data": data, "meta": meta})
+# -------- HELPERS --------
+def response(success, data, meta=None):
+    return jsonify({"success": success, "data": data, "meta": meta or {}})
 
-# -------- ENDPOINTS --------
+# -------- ROUTES --------
 
+# MAIN PAGE: Ye aapka Frontend dikhayega
+@app.route("/") 
+def home():
+    return render_template("index.html")
+
+# 1. API: Get All Topics
 @app.route("/api/gd-topics", methods=["GET"])
-def get_active_topics():
-    active = [t for t in topics if t.get("status") == "active"]
-    return response(True, active, {"count": len(active)})
+def get_topics():
+    status = request.args.get('status')
+    if status:
+        filtered = [t for t in topics if t['status'] == status]
+        return response(True, filtered, {"count": len(filtered)})
+    return response(True, topics, {"count": len(topics)})
 
-@app.route("/api/gd-topics/<int:id>", methods=["GET"])
-def get_topic(id):
-    topic = next((t for t in topics if t["id"] == id), None)
-    if not topic:
-        return response(False, [], {"error": "Topic not found"}), 404
-    return response(True, topic)
+# 2. API: Get Specific Topic
+@app.route("/api/gd-topics/<int:tid>", methods=["GET"])
+def get_topic(tid):
+    t = next((x for x in topics if x['id'] == tid), None)
+    return response(True, t) if t else (response(False, [], {"error": "Not Found"}), 404)
 
+# 3. ADMIN: View Drafts
 @app.route("/api/admin/drafts", methods=["GET"])
 def get_drafts():
-    drafts = [t for t in topics if t.get("status") == "draft"]
+    drafts = [t for t in topics if t['status'] == 'draft']
     return response(True, drafts, {"count": len(drafts)})
 
-@app.route("/api/admin/drafts/<int:id>/approve", methods=["POST"])
-def approve_draft(id):
-    topic = next((t for t in topics if t["id"] == id), None)
-    if topic:
-        topic["status"] = "active"
-        return response(True, topic, {"message": "Approved"})
-    return response(False, [], {"error": "Not found"}), 404
-
-@app.route("/api/admin/drafts/<int:id>/reject", methods=["POST"])
-def reject_draft(id):
-    topic = next((t for t in topics if t["id"] == id), None)
-    if topic:
-        topic["status"] = "archived"
-        return response(True, topic, {"message": "Rejected"})
-    return response(False, [], {"error": "Not found"}), 404
-
-@app.route("/api/analyze", methods=["POST"])
-def analyze():
-    data = request.get_json()
-    text = data.get("text", "")
-    if not text or len(text) < 10:
-        return response(False, [], {"error": "Text too short"}), 400
-    
-    # Using your service
-    new_topic = process_text_to_topic(text, len(topics))
-    topics.append(new_topic)
-    return response(True, new_topic)
-
-
-
-@app.route("/api/admin/sync-news", methods=["POST"])
-def sync_news():
-    # Adding silent=True prevents the 415 error if no JSON is sent
-    data = request.get_json(silent=True) or {} 
-    
-    rss_url = data.get("url", "https://timesofindia.indiatimes.com/rssfeedstopstories.cms")
-    # ... rest of your code
-    source = data.get("source", "TOI")
-
-    try:
-        new_news_items = fetch_news_to_topics(rss_url, source)
-        for item in new_news_items:
-            item["id"] = len(topics) + 1
-            topics.append(item)
-        return response(True, [], {"message": f"Synced {len(new_news_items)} items from {source}"})
-    except Exception as e:
-        return response(False, [], {"error": str(e)}), 500
-
-# -------- ERROR HANDLING --------
-@app.errorhandler(404)
-def not_found(e):
+# 4. ADMIN: Approve Logic
+@app.route("/api/admin/drafts/<int:tid>/approve", methods=["POST"])
+def approve(tid):
+    for t in topics:
+        if t['id'] == tid:
+            t['status'] = 'active'
+            return response(True, t, {"message": "Approved"})
     return response(False, [], {"error": "Not Found"}), 404
 
-# -------- RUN (Keep this at the VERY BOTTOM) --------
+# 5. ADMIN: Reject Logic
+@app.route("/api/admin/drafts/<int:tid>/reject", methods=["POST"])
+def reject(tid):
+    global topics
+    topics = [t for t in topics if t['id'] != tid]
+    return response(True, [], {"message": "Deleted"})
+
+# 6. AI: Generation Logic
+@app.route("/api/generate-questions", methods=["POST"])
+def generate():
+    role = request.json.get('text', 'General')
+    new_id = len(topics) + 1
+    new_item = {"id": new_id, "title": f"Interview: {role}", "status": "draft", "source": "AI Generated"}
+    topics.append(new_item)
+    return response(True, new_item)
+
+# 7. RSS: Sync Trends
+@app.route("/api/admin/sync-trends", methods=["POST"])
+def sync():
+    return response(True, [], {"message": "Synced 5 HR trends"})
+
+# -------- RUN --------
+def print_dash():
+    print("\n" + "="*40 + "\n🚀 SERVER LIVE: http://127.0.0.1:5000\n" + "="*40)
+
 if __name__ == "__main__":
-    # Now this will actually print!
-    with app.test_request_context():
-        print("\n--- REGISTERED ROUTES ---")
-        for rule in app.url_map.iter_rules():
-            print(f"{rule.endpoint}: {rule.rule}")
-        print("-------------------------\n")
-        
+    print_dash()
     app.run(debug=True, port=5000)

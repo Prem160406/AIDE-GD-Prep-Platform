@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # --- Core Web Framework ---
 Flask==3.1.3
 flask-cors==6.0.2
@@ -25,3 +26,15 @@ fastapi==0.136.0
 python-dateutil==2.9.0.post0
 typing_extensions==4.15.0
 rich==14.3.4
+=======
+# Module 1 - RSS Data Collection
+feedparser==6.0.11
+requests==2.31.0
+python-dotenv==1.0.0
+urllib3>=2.0.0
+
+# Module 3 / Backend (Gopal)
+fastapi==0.110.0
+uvicorn==0.29.0
+supabase==2.4.1
+>>>>>>> 57bcb6400e6da651cb8796a64b6693a1b42328ee
