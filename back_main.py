@@ -18,9 +18,9 @@ logger = logging.getLogger("aide.backend")
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
 
-# ------------------------------------------------------------
+
 # Environment
-# ------------------------------------------------------------
+
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
@@ -54,17 +54,17 @@ app.add_middleware(
 )
 
 
-# ------------------------------------------------------------
+
 # In-process lock
 # Note: good as an interim improvement; not sufficient for multi-instance deployments
-# ------------------------------------------------------------
+
 _pipeline_lock = threading.Lock()
 _pipeline_running = False
 
 
-# ------------------------------------------------------------
+
 # DTOs
-# ------------------------------------------------------------
+
 class TopicDTO(BaseModel):
     id: int | None = None
     title: str | None = None
@@ -91,9 +91,9 @@ class PipelineRunResponse(BaseModel):
     return_code: int | None = None
 
 
-# ------------------------------------------------------------
+
 # Helpers
-# ------------------------------------------------------------
+
 def require_admin_token(authorization: str | None = Header(default=None)) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -183,9 +183,9 @@ def fetch_topics_rows() -> list[dict[str, Any]]:
     return response.data or []
 
 
-# ------------------------------------------------------------
+
 # Routes
-# ------------------------------------------------------------
+
 @app.get("/")
 def home() -> dict[str, str]:
     return {"message": "AIDE Backend is healthy"}
