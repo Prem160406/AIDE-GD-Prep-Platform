@@ -168,8 +168,8 @@ class ScoredArticle:
         if not isinstance(self.weighted_score, (int, float)):
             raise TypeError(f"weighted_score must be numeric, got {type(self.weighted_score).__name__}")
         weighted_score = float(self.weighted_score)
-        if not (0.0 <= weighted_score <= 1.0):
-            raise ValueError(f"weighted_score must be between 0 and 1, got {weighted_score}")
+        if not (0.0 <= weighted_score <= 10.0):
+            raise ValueError(f"weighted_score must be between 0 and 10, got {weighted_score}")
         object.__setattr__(self, "weighted_score", weighted_score)
         object.__setattr__(self, "features", _freeze_feature_map(self.features, "features"))
         object.__setattr__(self, "evidence", _freeze_string_map(self.evidence, "evidence"))
@@ -269,8 +269,8 @@ class PipelineResultRow:
         if not isinstance(self.weighted_score, (int, float)):
             raise TypeError(f"weighted_score must be numeric, got {type(self.weighted_score).__name__}")
         weighted_score = float(self.weighted_score)
-        if not (0.0 <= weighted_score <= 1.0):
-            raise ValueError(f"weighted_score must be between 0 and 1, got {weighted_score}")
+        if not (0.0 <= weighted_score <= 10.0):
+            raise ValueError(f"weighted_score must be between 0 and 10, got {weighted_score}")
         object.__setattr__(self, "weighted_score", weighted_score)
         object.__setattr__(self, "features", _freeze_feature_map(self.features, "features"))
         object.__setattr__(self, "evidence", _freeze_string_map(self.evidence, "evidence"))

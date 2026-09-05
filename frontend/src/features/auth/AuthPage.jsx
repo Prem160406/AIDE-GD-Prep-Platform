@@ -37,83 +37,145 @@ export default function AuthPage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f766e 0%, #0e7490 100%)',
+      backgroundColor: '#f4efe6',
+      color: '#292524',
+      fontFamily: "'Georgia', serif",
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px',
+      padding: '24px',
     }}>
       <div style={{
-        background: '#fff',
-        borderRadius: '16px',
+        backgroundColor: '#f9f6f0',
+        border: '3px double #292524',
         padding: '40px',
         width: '100%',
-        maxWidth: '420px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+        maxWidth: '460px',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
       }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f766e', margin: 0 }}>AIDE</h1>
-          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>Automated Intelligent Discussion Engine</p>
+        {/* Masthead Header */}
+        <div style={{ textAlign: 'center', marginBottom: '32px', borderBottom: '2px solid #292524', paddingBottom: '16px' }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            color: '#57534e',
+            marginBottom: '4px'
+          }}>
+            PRESS PASS & SUBSCRIPTION
+          </div>
+          <h1 style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: '38px',
+            fontWeight: '900',
+            color: '#1c1917',
+            margin: '0 0 4px 0',
+            lineHeight: 1.1,
+          }}>
+            The AIDE Daily
+          </h1>
+          <p style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.12em',
+            color: '#78716c',
+            margin: 0,
+          }}>
+            ALL THE INTELLIGENCE FIT TO PRACTICE
+          </p>
         </div>
 
         {/* Toggle */}
-        <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '8px', padding: '4px', marginBottom: '24px' }}>
+        <div style={{
+          display: 'flex',
+          border: '1px solid #292524',
+          marginBottom: '28px',
+          backgroundColor: '#e7e0d3'
+        }}>
           {['login', 'signup'].map(m => (
-            <button key={m} onClick={() => { setMode(m); setError(null); }} style={{
-              flex: 1,
-              padding: '8px',
-              border: 'none',
-              borderRadius: '6px',
-              fontWeight: '600',
-              fontSize: '14px',
-              cursor: 'pointer',
-              background: mode === m ? '#fff' : 'transparent',
-              color: mode === m ? '#0f766e' : '#6b7280',
-              boxShadow: mode === m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              transition: 'all 0.2s',
-            }}>
-              {m === 'login' ? 'Log In' : 'Sign Up'}
+            <button
+              key={m}
+              onClick={() => { setMode(m); setError(null); }}
+              style={{
+                flex: 1,
+                padding: '10px',
+                border: 'none',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: '700',
+                fontSize: '12px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                cursor: 'pointer',
+                backgroundColor: mode === m ? '#292524' : 'transparent',
+                color: mode === m ? '#f4efe6' : '#57534e',
+                transition: 'all 0.15s ease-in-out',
+              }}
+            >
+              {m === 'login' ? '[ LOG IN ]' : '[ SIGN UP ]'}
             </button>
           ))}
         </div>
 
-        {/* Fields */}
+        {/* Form Fields */}
         {mode === 'signup' && (
+          <div style={{ marginBottom: '16px' }}>
+            <label style={labelStyle}>SUBSCRIBER FULL NAME</label>
+            <input
+              placeholder="e.g. Prem Salunkhe"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+        )}
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>EMAIL ADDRESS</label>
           <input
-            placeholder="Full Name"
-            value={fullName}
-            onChange={e => setFullName(e.target.value)}
+            placeholder="name@institution.edu"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
             style={inputStyle}
           />
-        )}
-        <input
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={inputStyle}
-        />
-        <input
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          style={inputStyle}
-        />
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>SECURITY CREDENTIAL / PASSWORD</label>
+          <input
+            placeholder="••••••••••••"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
 
         {mode === 'signup' && (
-          <select value={role} onChange={e => setRole(e.target.value)} style={inputStyle}>
-            <option value="student">Student</option>
-            <option value="tpo">TPO</option>
-            <option value="company">Company</option>
-          </select>
+          <div style={{ marginBottom: '20px' }}>
+            <label style={labelStyle}>READER ROLE & DESK</label>
+            <select value={role} onChange={e => setRole(e.target.value)} style={inputStyle}>
+              <option value="student">Student / GD Aspirant</option>
+              <option value="tpo">Training & Placement Officer (TPO)</option>
+              <option value="company">Corporate Recruiter</option>
+            </select>
+          </div>
         )}
 
         {error && (
-          <p style={{ fontSize: '13px', color: error.includes('Check') ? '#059669' : '#dc2626', marginBottom: '12px' }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: '12px',
+            padding: '10px 14px',
+            border: `1px solid ${error.includes('Check') ? '#166534' : '#991b1b'}`,
+            backgroundColor: error.includes('Check') ? '#dcfce7' : '#fee2e2',
+            color: error.includes('Check') ? '#166534' : '#991b1b',
+            marginBottom: '16px',
+          }}>
             {error}
-          </p>
+          </div>
         )}
 
         <button
@@ -122,29 +184,54 @@ export default function AuthPage() {
           style={{
             width: '100%',
             padding: '12px',
-            background: loading ? '#99f6e4' : '#0f766e',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
+            backgroundColor: loading ? '#78716c' : '#292524',
+            color: '#f4efe6',
+            border: '1px solid #292524',
+            fontFamily: "'JetBrains Mono', monospace",
             fontWeight: '700',
-            fontSize: '15px',
+            fontSize: '13px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
             cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'background 0.2s',
+            transition: 'all 0.15s ease-in-out',
           }}
         >
-          {loading ? 'Please wait...' : mode === 'login' ? 'Log In' : 'Create Account'}
+          {loading ? '[ PROCESSING... ]' : mode === 'login' ? '[ ACCESS DISPATCHES → ]' : '[ CREATE PRESS PASS → ]'}
         </button>
+
+        <div style={{
+          marginTop: '28px',
+          textAlign: 'center',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+          color: '#78716c',
+          borderTop: '1px solid #d6cebf',
+          paddingTop: '16px',
+        }}>
+          AIDE DISPATCH SYSTEM · EDITION 2026
+        </div>
       </div>
     </div>
   );
 }
 
+const labelStyle = {
+  display: 'block',
+  fontFamily: "'JetBrains Mono', monospace",
+  fontSize: '11px',
+  fontWeight: '700',
+  color: '#44403c',
+  marginBottom: '6px',
+  letterSpacing: '0.05em',
+};
+
 const inputStyle = {
   width: '100%',
-  padding: '12px',
-  marginBottom: '12px',
-  border: '1px solid #e5e7eb',
-  borderRadius: '8px',
+  padding: '10px 12px',
+  border: '1px solid #a8a29e',
+  backgroundColor: '#f4efe6',
+  color: '#1c1917',
+  fontFamily: "'Georgia', serif",
   fontSize: '14px',
   outline: 'none',
   boxSizing: 'border-box',

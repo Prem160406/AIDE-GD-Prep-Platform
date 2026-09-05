@@ -1,13 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
-import { getActiveTopics } from '../../services/api';
 
-export default function TPODashboard({ session }) {
+function formatScore(val) {
+  if (val == null) return 85;
+  const num = Number(val);
+  if (isNaN(num)) return 85;
+  if (num <= 1.0) return Math.round(num * 100);
+  if (num <= 10.0) return Math.round(num * 10);
+  return Math.round(num);
+}
+
+function getCategoryTag(topic) {
+  const text = ((topic.title || '') + ' ' + (topic.summary || '')).toLowerCase();
+  if (text.includes('ai') || text.includes('tech') || text.includes('digital') || text.includes('cyber') || text.includes('data') || text.includes('model')) {
+    return '⚡ TECH & INNOVATION';
+  }
+  if (text.includes('econ') || text.includes('esg') || text.includes('bank') || text.includes('fiscal') || text.includes('market') || text.includes('trade') || text.includes('poverty') || text.includes('income')) {
+    return '📊 ECONOMICS & BUSINESS';
+  }
+  if (text.includes('policy') || text.includes('gov') || text.includes('parliament') || text.includes('india') || text.includes('state') || text.includes('law') || text.includes('court')) {
+    return '🏛️ POLICY & GOVERNANCE';
+  }
+  if (text.includes('ethic') || text.includes('social') || text.includes('privacy') || text.includes('climate') || text.includes('rights')) {
+    return '⚖️ ETHICS & SOCIETY';
+  }
+  if (text.includes('world') || text.includes('global') || text.includes('foreign') || text.includes('us') || text.includes('china') || text.includes('war')) {
+    return '🌐 GLOBAL AFFAIRS';
+  }
+  return '📰 NATIONAL DISPATCH';
+}
+
+function getStampStyle(score) {
+  const isDistinction = score >= 80;
+  const isMerit = score >= 60;
+  return {
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: '10px',
+    fontWeight: '800',
+    padding: '2px 8px',
+    border: `1.5px solid ${isDistinction ? '#991b1b' : isMerit ? '#92400e' : '#1d4ed8'}`,
+    color: isDistinction ? '#991b1b' : isMerit ? '#92400e' : '#1d4ed8',
+    backgroundColor: isDistinction ? '#fee2e2' : isMerit ? '#fef3c7' : '#dbeafe',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    transform: isDistinction ? 'rotate(-1deg)' : 'none',
+    display: 'inline-block'
+  };
+}
+
+function getStampLabel(score) {
+  if (score >= 80) return 'DISTINCTION';
+  if (score >= 60) return 'MERIT';
+  return 'PASS';
+}
+
+export default function TPODashboard({ session, profile }) {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const filters = ['All', 'Controversy', 'Policy', 'Ethics', 'Multi-Stakeholder'];
 
@@ -17,10 +70,25 @@ export default function TPODashboard({ session }) {
 
   const fetchTopics = async () => {
     try {
-      const data = await getActiveTopics();
-      setTopics(data.topics || []);
-    } catch {
-      setError('Failed to load topics.');
+      const { data, error: fetchErr } = await supabase
+        .from('topics')
+        .select('*')
+        .in('status', ['active', 'published', 'archived'])
+        .order('created_at', { ascending: false });
+
+      if (fetchErr) throw fetchErr;
+
+      const normalized = (data || []).map(t => ({
+        ...t,
+        source: t.source_name || t.source || 'News Outlet',
+        date: t.published || t.created_at,
+        score: formatScore(t.weighted_score),
+      }));
+
+      setTopics(normalized);
+    } catch (err) {
+      console.error('Failed to fetch TPO topics:', err);
+      setError('Failed to load topics: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -36,7 +104,7 @@ export default function TPODashboard({ session }) {
         t.summary,
         t.source,
         t.date,
-        t.score,
+        `${t.score}/100`,
         t.controversy ? 'Yes' : 'No',
         t.policy_relevance ? 'Yes' : 'No',
         t.ethical_dimension ? 'Yes' : 'No',
@@ -50,13 +118,15 @@ export default function TPODashboard({ session }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `AIDE_Topics_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `AIDE_Topics_Report_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const filteredTopics = topics.filter(t => {
-    const matchSearch = t.title?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = t.title?.toLowerCase().includes(search.toLowerCase()) ||
+                        t.summary?.toLowerCase().includes(search.toLowerCase()) ||
+                        t.source?.toLowerCase().includes(search.toLowerCase());
     const matchFilter =
       filter === 'All' ? true :
       filter === 'Controversy' ? t.controversy :
@@ -66,121 +136,196 @@ export default function TPODashboard({ session }) {
     return matchSearch && matchFilter;
   });
 
+  const pageSize = 9;
+  const totalPages = Math.max(1, Math.ceil(filteredTopics.length / pageSize));
+  const currentPageTopics = filteredTopics.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const currentDateStr = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  }).toUpperCase();
+
   return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f4efe6', color: '#292524', fontFamily: "'Georgia', serif", padding: '24px 40px' }}>
+      <div style={{ maxWidth: '100%', margin: '0 auto' }}>
 
-      {/* Navbar */}
-      <nav style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '0 32px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: '20px', fontWeight: '800', color: '#0f766e' }}>AIDE</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ fontSize: '14px', color: '#6b7280' }}>
-            {session.user.user_metadata?.full_name || session.user.email}
-          </span>
-          <button onClick={handleExport} style={{ padding: '8px 16px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-            ⬇ Export CSV
+        {/* TOP MASTHEAD */}
+        <header style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          alignItems: 'center', gap: '16px', padding: '16px 0',
+          borderTop: '3px double #292524', borderBottom: '3px double #292524', marginBottom: '16px'
+        }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#44403c', border: '1px solid #a8a29e', padding: '10px', backgroundColor: '#eae3d6' }}>
+            <div style={{ fontWeight: '700' }}>DESK: TPO FACULTY</div>
+            <div style={{ color: '#57534e', marginTop: '2px' }}>{currentDateStr}</div>
+            <div style={{ color: '#78716c', marginTop: '2px', fontSize: '10px' }}>PAGE {currentPage} OF {totalPages}</div>
+          </div>
+
+          <div style={{ gridColumn: 'span 2', textAlign: 'center' }}>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(2.5rem, 6vw, 4.2rem)', fontWeight: '900', color: '#1c1917', margin: '0 0 4px 0', lineHeight: 1.0, letterSpacing: '-0.02em' }}>
+              The AIDE Daily
+            </h1>
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#57534e', margin: 0, fontWeight: '700' }}>
+              TRAINING & PLACEMENT DIRECTORY · EST. 2026
+            </p>
+          </div>
+
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#44403c', border: '1px solid #a8a29e', padding: '10px', backgroundColor: '#eae3d6', textAlign: 'right' }}>
+            <div style={{ fontWeight: '700', color: '#1c1917' }}>{profile?.full_name || session.user.email}</div>
+            <div style={{ color: '#991b1b', fontWeight: '700', marginTop: '2px' }}>
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#991b1b', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}>[ LOGOUT ]</button>
+            </div>
+          </div>
+        </header>
+
+        {/* SECTION NAVIGATION & EXPORT */}
+        <nav style={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center',
+          gap: '16px', paddingBottom: '12px', borderBottom: '2px solid #292524', marginBottom: '24px',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: '12px'
+        }}>
+          <div style={{ display: 'flex', gap: '20px', fontWeight: '700' }}>
+            <span style={{ color: '#78716c' }}>§ DISPATCHES</span>
+            <span style={{ borderBottom: '2px solid #292524', paddingBottom: '2px', color: '#1c1917' }}>§ APTITUDE & ASSESSMENT</span>
+            <span style={{ color: '#78716c' }}>§ COMPANY INTELLIGENCE</span>
+          </div>
+
+          <button onClick={handleExport} style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', fontWeight: '800',
+            padding: '6px 14px', border: '1px solid #292524', backgroundColor: '#292524', color: '#f4efe6',
+            cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.05em'
+          }}>
+            [ EXPORT DIRECTORY CSV → ]
           </button>
-          <button onClick={handleLogout} style={{ padding: '8px 16px', background: '#f3f4f6', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
-            Logout
-          </button>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Hero */}
-      <div style={{ background: 'linear-gradient(135deg, #0f766e 0%, #0e7490 100%)', padding: '48px 32px', color: '#fff' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <h1 style={{ fontSize: '36px', fontWeight: '800', margin: '0 0 12px 0' }}>TPO Dashboard</h1>
-          <p style={{ fontSize: '16px', opacity: 0.85, maxWidth: '560px', margin: 0, lineHeight: 1.6 }}>
-            Browse AI-generated GD topics. Export the full list for faculty or placement reports.
-          </p>
-          <p style={{ fontSize: '14px', opacity: 0.75, marginTop: '12px' }}>
-            {topics.length} topics available · Last updated {topics[0]?.date ? new Date(topics[0].date).toLocaleDateString() : '—'}
-          </p>
-        </div>
-      </div>
-
-      {/* Search + Filters */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 32px 0' }}>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '240px', display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px 16px', gap: '8px' }}>
-            <span style={{ color: '#9ca3af' }}>🔍</span>
+        {/* SEARCH & CATEGORY FILTERS */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center', marginBottom: '24px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
+          <div style={{ flex: 1, minWidth: '260px', display: 'flex', alignItems: 'center', backgroundColor: '#eae3d6', border: '1px solid #a8a29e', padding: '6px 12px', gap: '8px' }}>
+            <span style={{ color: '#57534e', fontWeight: '700' }}>SEARCH:</span>
             <input
-              placeholder="Search topics..."
+              placeholder="filter dispatches by title, source, or summary..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ border: 'none', outline: 'none', fontSize: '14px', width: '100%' }}
+              onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              style={{ border: 'none', outline: 'none', fontSize: '12px', width: '100%', backgroundColor: 'transparent', color: '#1c1917', fontFamily: "'Georgia', serif", fontStyle: 'italic' }}
             />
           </div>
-          {filters.map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              padding: '8px 16px', borderRadius: '20px', border: '1px solid',
-              borderColor: filter === f ? '#0f766e' : '#e5e7eb',
-              background: filter === f ? '#0f766e' : '#fff',
-              color: filter === f ? '#fff' : '#4b5563',
-              fontWeight: '500', fontSize: '13px', cursor: 'pointer',
-            }}>
-              {f}
-            </button>
-          ))}
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {filters.map(f => (
+              <button key={f} onClick={() => { setFilter(f); setCurrentPage(1); }} style={{
+                padding: '4px 10px', border: '1px solid #292524',
+                backgroundColor: filter === f ? '#292524' : '#eae3d6',
+                color: filter === f ? '#f4efe6' : '#292524',
+                fontWeight: '700', fontSize: '11px', cursor: 'pointer', textTransform: 'uppercase'
+              }}>
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {error && <p style={{ color: '#dc2626' }}>{error}</p>}
-        {loading && <p style={{ color: '#6b7280' }}>Loading topics...</p>}
+        {error && <div style={{ padding: '12px', backgroundColor: '#fee2e2', border: '2px solid #991b1b', color: '#991b1b', fontFamily: "'JetBrains Mono', monospace", marginBottom: '20px' }}>✖ {error}</div>}
+        {loading && <p style={{ fontFamily: "'JetBrains Mono', monospace", color: '#57534e' }}>Loading assessment directory...</p>}
 
         {!loading && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px', paddingBottom: '40px' }}>
-            {filteredTopics.map(topic => (
-              <TPOTopicCard key={topic.id} topic={topic} />
-            ))}
-            {filteredTopics.length === 0 && (
-              <p style={{ color: '#6b7280', gridColumn: '1/-1' }}>No topics match your search.</p>
+          <div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+              gap: '28px',
+              alignItems: 'stretch'
+            }}>
+              {currentPageTopics.map(topic => (
+                <article key={topic.id} style={{
+                  border: '1px solid #a8a29e', backgroundColor: '#eae3d6', padding: '20px',
+                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', fontWeight: '700', color: '#57534e', textTransform: 'uppercase' }}>
+                        {getCategoryTag(topic)}
+                      </span>
+                      <span style={getStampStyle(topic.score)}>
+                        [{getStampLabel(topic.score)}]
+                      </span>
+                    </div>
+
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: '700', color: '#1c1917', margin: '0 0 8px 0', lineHeight: 1.3 }}>
+                      {topic.title}
+                    </h3>
+
+                    <p style={{ fontSize: '13px', color: '#44403c', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+                      {topic.summary}
+                    </p>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #a8a29e', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#57534e' }}>
+                    <span style={{ fontWeight: '800', color: '#1c1917' }}>SCORE {topic.score} / 100</span>
+                    <span>{topic.source.toUpperCase()}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* NEWSPAPER PAGINATION CONTROL BAR */}
+            {totalPages > 1 && (
+              <div style={{
+                borderTop: '3px double #292524', borderBottom: '3px double #292524',
+                padding: '14px 20px', marginTop: '40px', marginBottom: '24px', display: 'flex', flexWrap: 'wrap',
+                justify: 'space-between', alignItems: 'center', gap: '16px',
+                fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', backgroundColor: '#eae3d6'
+              }}>
+                <div style={{ fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1c1917' }}>
+                  § EDITION PAGES: PAGE {currentPage} OF {totalPages} ({filteredTopics.length} TOTAL DISPATCHES)
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    onClick={() => { setCurrentPage(prev => Math.max(1, prev - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    disabled={currentPage === 1}
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', fontWeight: '800',
+                      padding: '6px 12px', border: '1px solid #292524', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      backgroundColor: currentPage === 1 ? '#d6cebf' : '#292524',
+                      color: currentPage === 1 ? '#78716c' : '#f4efe6', textTransform: 'uppercase'
+                    }}
+                  >
+                    [ ← PREV PAGE ]
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                    <button
+                      key={pageNum}
+                      onClick={() => { setCurrentPage(pageNum); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      style={{
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', fontWeight: '800',
+                        padding: '6px 12px', border: '1px solid #292524', cursor: 'pointer',
+                        backgroundColor: currentPage === pageNum ? '#292524' : '#eae3d6',
+                        color: currentPage === pageNum ? '#f4efe6' : '#292524', textTransform: 'uppercase'
+                      }}
+                    >
+                      [ PAGE {pageNum} ]
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => { setCurrentPage(prev => Math.min(totalPages, prev + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', fontWeight: '800',
+                      padding: '6px 12px', border: '1px solid #292524', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                      backgroundColor: currentPage === totalPages ? '#d6cebf' : '#292524',
+                      color: currentPage === totalPages ? '#78716c' : '#f4efe6', textTransform: 'uppercase'
+                    }}
+                  >
+                    [ NEXT PAGE → ]
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
 
-function TPOTopicCard({ topic }) {
-  const tags = [
-    topic.controversy && { label: 'Controversy', color: '#fef3c7', text: '#92400e' },
-    topic.policy_relevance && { label: 'Policy', color: '#dbeafe', text: '#1e40af' },
-    topic.ethical_dimension && { label: 'Ethics', color: '#f3e8ff', text: '#6b21a8' },
-    topic.multiple_stakeholders && { label: 'Multi-Stakeholder', color: '#dcfce7', text: '#166534' },
-  ].filter(Boolean);
-
-  return (
-    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {tags.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {tags.map(tag => (
-            <span key={tag.label} style={{ padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '600', background: tag.color, color: tag.text }}>
-              {tag.label}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#111827', margin: 0, lineHeight: 1.4 }}>
-        {topic.title}
-      </h3>
-
-      <p style={{ fontSize: '14px', color: '#4b5563', margin: 0, lineHeight: 1.6 }}>
-        {topic.summary}
-      </p>
-
-      <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#6b7280', flexWrap: 'wrap' }}>
-        {topic.date && <span>📅 {new Date(topic.date).toLocaleDateString()}</span>}
-        {topic.source && (
-          <span>📰{' '}
-            {topic.source_url
-              ? <a href={topic.source_url} target="_blank" rel="noreferrer" style={{ color: '#0f766e' }}>{topic.source}</a>
-              : topic.source}
-          </span>
-        )}
-        {topic.score != null && <span>⭐ {topic.score}/10</span>}
-        {topic.pipeline_version && <span>🔧 v{topic.pipeline_version}</span>}
-        {topic.factual_freshness && <span>🕐 {topic.factual_freshness}</span>}
       </div>
     </div>
   );

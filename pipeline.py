@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from collector import collect_articles
 from config import (
@@ -145,6 +146,7 @@ async def run_pipeline_async(
     if type(feed_limit) is not int or feed_limit <= 0:
         raise ValueError("feed_limit must be a positive int")
 
+    start_time = time.perf_counter()
     validate_scoring_config()
 
     feed_urls = _get_feed_urls(feed_limit)
@@ -193,11 +195,14 @@ async def run_pipeline_async(
     json_path = json_output_path or str(DEFAULT_JSON_OUTPUT)
     csv_path = csv_output_path or str(DEFAULT_CSV_OUTPUT)
 
+    duration_seconds = time.perf_counter() - start_time
+
     write_pipeline_outputs(
         rows,
         json_output_path=json_path,
         csv_output_path=csv_path,
         stats=stats,
+        duration_seconds=duration_seconds,
     )
 
     logger.info(

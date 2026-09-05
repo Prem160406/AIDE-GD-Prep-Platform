@@ -130,14 +130,14 @@ def _compute_weighted_score(features: dict[str, bool | str]) -> tuple[float, lis
         )
     if total_weight == 0.0:
         raise ScoringError("Total feature weight is zero — check FEATURE_WEIGHTS in config")
-    raw_score = total_weighted / total_weight
-    if not (0.0 <= raw_score <= 1.0):
+    raw_score = (total_weighted / total_weight) * 10.0
+    if not (0.0 <= raw_score <= 10.0):
         logger.error(
-            "Weighted score %.4f is outside expected [0, 1] range — likely a config error; clamping",
+            "Weighted score %.4f is outside expected [0, 10] range — likely a config error; clamping",
             raw_score,
         )
-    clamped = max(0.0, min(1.0, raw_score))
-    return round(clamped, 4), contributions
+    clamped = max(0.0, min(10.0, raw_score))
+    return round(clamped, 1), contributions
 
 
 def _apply_hard_filters(features: dict[str, bool | str]) -> tuple[bool, list[str]]:

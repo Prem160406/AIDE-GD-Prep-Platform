@@ -49,10 +49,10 @@ VALID_LOG_LEVELS: Final[frozenset[str]] = frozenset({"DEBUG", "INFO", "WARNING",
 
 
 DECISION_BANDS: Final[tuple[tuple[float, str], ...]] = (
-    (0.80, "Suggest"),
-    (0.60, "Borderline"),
-    (0.40, "Background"),
-    (0.00, "Drop"),
+    (8.0, "Suggest"),
+    (6.0, "Borderline"),
+    (4.0, "Background"),
+    (0.0, "Drop"),
 )
 
 

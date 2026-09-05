@@ -252,7 +252,7 @@ def push_rows_to_supabase(rows: Sequence[PipelineResultRow]) -> None:
                 "debate_balance": row.features.get("debate_balance"),
                 "public_impact": row.features.get("public_impact"),
                 "topic_clarity": row.features.get("topic_clarity"),
-                "status": "draft",
+                "status": "active",
             }).execute()
             pushed += 1
 
@@ -261,16 +261,47 @@ def push_rows_to_supabase(rows: Sequence[PipelineResultRow]) -> None:
 
     logger.info("Supabase push complete — %d inserted, %d skipped.", pushed, skipped)
 
+def record_pipeline_run_telemetry(
+    stats: PipelineStats | None,
+    duration_seconds: float = 0.0,
+    error_log: str | None = None,
+) -> None:
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+
+    if not url or not key:
+        return
+
+    try:
+        supabase = create_client(url, key)
+        payload = {
+            "raw_count": stats.raw_count if stats else 0,
+            "deduped_count": stats.deduped_count if stats else 0,
+            "fetched_count": stats.fetched_count if stats else 0,
+            "scored_count": stats.scored_count if stats else 0,
+            "final_count": stats.final_count if stats else 0,
+            "failed_count": stats.failed_count if stats else 0,
+            "duration_seconds": round(duration_seconds, 2),
+            "status": "failed" if error_log else "completed",
+            "error_log": error_log,
+        }
+        supabase.table("pipeline_runs").insert(payload).execute()
+        logger.info("Recorded pipeline run telemetry to Supabase.")
+    except Exception as exc:
+        logger.warning("Failed to record pipeline run telemetry: %s", exc)
+
 def write_pipeline_outputs(
     rows: Sequence[PipelineResultRow],
     *,
     json_output_path: str | Path = DEFAULT_JSON_OUTPUT,
     csv_output_path: str | Path = DEFAULT_CSV_OUTPUT,
     stats: PipelineStats | None = None,
+    duration_seconds: float = 0.0,
 ) -> tuple[Path, Path]:
     json_path = write_rows_to_json(rows, json_output_path, stats=stats)
     csv_path = write_rows_to_csv(rows, csv_output_path)
     push_rows_to_supabase(rows)
+    record_pipeline_run_telemetry(stats, duration_seconds=duration_seconds)
     return json_path, csv_path
 
 
@@ -281,5 +312,7 @@ __all__ = [
     "result_row_to_dict",
     "write_rows_to_json",
     "write_rows_to_csv",
+    "push_rows_to_supabase",
+    "record_pipeline_run_telemetry",
     "write_pipeline_outputs",
 ]
